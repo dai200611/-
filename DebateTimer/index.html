@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0f1c">
+<title>高校辩论赛计时器</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root{
+    --bg:#0a0f1c; --panel:#111a2e; --panel2:#0d1526;
+    --line:#1e2d4a; --text:#e8eefc; --dim:#8ba3c7;
+    --gold:#f0b429; --pro:#3b82f6; --con:#ef4444;
+    --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    overflow:hidden;
+  }
+  .hidden{display:none !important}
+
+  /* ================= 设置页 ================= */
+  #setup{
+    height:100vh;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 0%,#15213a 0%,#0a0f1c 60%);
+    padding:24px;
+  }
+  .setup-card{
+    width:min(760px,92vw);background:var(--panel);border:1px solid var(--line);
+    border-radius:18px;padding:44px 48px;box-shadow:0 24px 80px rgba(0,0,0,.55);
+  }
+  .setup-card h1{
+    font-size:30px;letter-spacing:2px;text-align:center;margin-bottom:6px;
+    background:linear-gradient(90deg,#fff,#9db9e8);-webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .setup-card .sub{text-align:center;color:var(--dim);font-size:14px;margin-bottom:34px;letter-spacing:1px}
+  .field{margin-bottom:22px}
+  .field label{display:block;font-size:14px;color:var(--dim);margin-bottom:8px;letter-spacing:1px}
+  .field input{
+    width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:15px 18px;font-size:18px;color:var(--text);outline:none;transition:.2s;
+    font-family:inherit;
+  }
+  .field input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(240,180,41,.15)}
+  .field input::placeholder{color:#4a5f85}
+  .btn{
+    border:none;border-radius:10px;cursor:pointer;font-family:inherit;
+    font-size:16px;padding:14px 22px;transition:.15s;letter-spacing:1px;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:linear-gradient(180deg,#f0b429,#d99a12);color:#20160a;font-weight:700}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .btn-ghost:hover{border-color:#33507f}
+  .btn-start{background:linear-gradient(180deg,#22c55e,#16a34a);color:#fff;font-weight:700}
+  .btn-pause{background:linear-gradient(180deg,#f59e0b,#d97706);color:#fff;font-weight:700}
+  .btn-reset{background:linear-gradient(180deg,#ef4444,#dc2626);color:#fff;font-weight:700}
+  .btn:disabled{opacity:.35;cursor:not-allowed;filter:none}
+  #enterBtn{width:100%;margin-top:12px;padding:18px;font-size:19px}
+  .setup-tip{margin-top:18px;font-size:13px;color:var(--dim);text-align:center;line-height:1.7}
+  .setup-tip b{color:var(--gold)}
+
+  /* ================= 比赛页 ================= */
+  #match{height:100vh;display:flex;flex-direction:column}
+
+  /* 顶部信息 */
+  .topbar{
+    display:flex;align-items:center;gap:18px;
+    background:linear-gradient(180deg,#101a2e,#0c1424);
+    border-bottom:1px solid var(--line);
+    padding:12px 26px;flex-shrink:0;
+  }
+  .team{
+    flex:0 0 auto;display:flex;align-items:center;gap:10px;
+    padding:8px 18px;border-radius:10px;font-size:17px;font-weight:700;
+    min-width:180px;justify-content:center;
+  }
+  .team.pro{background:rgba(59,130,246,.14);color:#8ec1ff;border:1px solid rgba(59,130,246,.35)}
+  .team.con{background:rgba(239,68,68,.13);color:#ff9d9d;border:1px solid rgba(239,68,68,.32)}
+  .team .dot{width:9px;height:9px;border-radius:50%;background:currentColor}
+  .topic{
+    flex:1;text-align:center;font-size:20px;font-weight:700;letter-spacing:1.5px;
+    color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .topic small{display:block;font-size:12px;color:var(--dim);font-weight:400;margin-top:2px;letter-spacing:2px}
+  .topbar-actions{display:flex;gap:8px;flex:0 0 auto}
+  .topbar-actions .btn{padding:9px 14px;font-size:13px}
+
+  /* 环节导航 */
+  .segbar{
+    display:flex;gap:6px;overflow-x:auto;padding:10px 20px;flex-shrink:0;
+    background:#0b1322;border-bottom:1px solid var(--line);
+  }
+  .segbar::-webkit-scrollbar{height:6px}
+  .segbar::-webkit-scrollbar-thumb{background:#22314f;border-radius:3px}
+  .segchip{
+    flex:0 0 auto;cursor:pointer;border:1px solid var(--line);background:var(--panel2);
+    color:var(--dim);padding:8px 13px;border-radius:8px;font-size:12.5px;white-space:nowrap;
+    transition:.15s;font-family:inherit;line-height:1.35;
+  }
+  .segchip:hover{border-color:#33507f;color:#cfe0ff}
+  .segchip.active{background:rgba(240,180,41,.15);border-color:var(--gold);color:var(--gold);font-weight:700}
+  .segchip .n{opacity:.65;margin-right:4px}
+
+  /* 主区 */
+  .main{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:10px 30px 26px;min-height:0;position:relative;
+  }
+  .seg-title{text-align:center;margin-bottom:6px;flex-shrink:0}
+  .seg-title h2{font-size:clamp(20px,2.4vw,34px);letter-spacing:3px;font-weight:800;color:#fff}
+  .seg-title .role{
+    display:inline-block;margin-top:8px;font-size:clamp(12px,1.1vw,15px);color:var(--gold);
+    background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.3);
+    padding:4px 14px;border-radius:20px;letter-spacing:1px;
+  }
+
+  /* 单边计时 */
+  #singleWrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%}
+  .clock{
+    font-size:clamp(90px,15vw,220px);font-weight:800;line-height:.95;
+    font-variant-numeric:tabular-nums;letter-spacing:4px;
+    color:#fff;text-shadow:0 0 60px rgba(59,130,246,.28);
+    transition:color .2s;
+  }
+  .clock.warn{color:var(--warn);text-shadow:0 0 60px rgba(245,158,11,.4)}
+  .clock.danger{color:var(--danger);text-shadow:0 0 70px rgba(239,68,68,.55);animation:pulse .9s infinite}
+  .clock.done{color:#6b7fa3;text-shadow:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+  .clock-side{
+    font-size:clamp(14px,1.4vw,20px);color:var(--dim);margin-bottom:10px;letter-spacing:3px;
+  }
+  .progress{
+    width:min(1000px,88vw);height:10px;background:#15213a;border-radius:6px;overflow:hidden;
+    margin:26px 0 8px;border:1px solid var(--line);
+  }
+  .progress > i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);transition:width .15s linear}
+  .progress > i.warn{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+  .progress > i.danger{background:linear-gradient(90deg,#ef4444,#f87171)}
+  .state-tag{margin-top:20px;font-size:15px;letter-spacing:2px;color:var(--dim);height:22px}
+  .state-tag.running{color:var(--ok)}
+  .state-tag.paused{color:var(--warn)}
+  .state-tag.ended{color:var(--danger)}
+
+  /* 双边计时 */
+  #dualWrap{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:34px;width:100%;max-width:1500px;align-items:stretch}
+  .dual-col{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-radius:20px;padding:22px 18px;border:2px solid transparent;transition:.2s;
+    position:relative;overflow:hidden;
+  }
+  .dual-col.pro{background:linear-gradient(180deg,rgba(59,130,246,.10),rgba(59,130,246,.03));border-color:rgba(59,130,246,.25)}
+  .dual-col.con{background:linear-gradient(180deg,rgba(239,68,68,.10),rgba(239,68,68,.03));border-color:rgba(239,68,68,.25)}
+  .dual-col.active.pro{border-color:var(--pro);box-shadow:0 0 50px rgba(59,130,246,.35) inset}
+  .dual-col.active.con{border-color:var(--con);box-shadow:0 0 50px rgba(239,68,68,.32) inset}
+  .dual-col .who{font-size:clamp(17px,1.8vw,26px);font-weight:800;letter-spacing:3px;margin-bottom:6px}
+  .dual-col.pro .who{color:#8ec1ff}
+  .dual-col.con .who{color:#ff9d9d}
+  .dual-clock{
+    font-size:clamp(76px,11vw,170px);font-weight:800;line-height:1;letter-spacing:3px;
+    font-variant-numeric:tabular-nums;color:#fff;
+  }
+  .dual-col.pro .dual-clock{text-shadow:0 0 50px rgba(59,130,246,.35)}
+  .dual-col.con .dual-clock{text-shadow:0 0 50px rgba(239,68,68,.35)}
+  .dual-clock.warn{color:var(--warn);text-shadow:0 0 50px rgba(245,158,11,.45)}
+  .dual-clock.danger{color:var(--danger);text-shadow:0 0 60px rgba(239,68,68,.6);animation:pulse .9s infinite}
+  .dual-clock.done{color:#5b6f92;text-shadow:none;text-decoration:line-through;text-decoration-thickness:4px}
+  .dual-state{margin-top:10px;font-size:13px;letter-spacing:2px;color:var(--dim);height:20px}
+  .dual-col .ctrl{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .dual-col .ctrl .btn{padding:10px 16px;font-size:14px}
+  .dual-badge{
+    position:absolute;top:12px;right:14px;font-size:11px;letter-spacing:2px;
+    padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.08);color:var(--dim);
+  }
+  .dual-col.active .dual-badge{background:rgba(240,180,41,.18);color:var(--gold)}
+
+  /* 底部控制 */
+  .ctrlbar{
+    display:flex;gap:14px;justify-content:center;align-items:center;
+    padding:16px 20px 22px;flex-shrink:0;flex-wrap:wrap;
+  }
+  .ctrlbar .btn{min-width:130px;padding:16px 26px;font-size:17px}
+  .kbd-tip{font-size:12px;color:#4d6386;letter-spacing:1px;margin-left:8px}
+
+  /* 全屏按钮 */
+  #fsBtn{position:fixed;right:18px;bottom:18px;z-index:50;opacity:.35}
+  #fsBtn:hover{opacity:.9}
+
+  @media (max-width:900px){
+    #dualWrap{grid-template-columns:1fr;gap:16px}
+    .topbar{flex-wrap:wrap}
+    .team{min-width:130px;font-size:14px;padding:6px 12px}
+    .topic{order:-1;flex-basis:100%;font-size:16px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== 设置页 ==================== -->
+<section id="setup">
+  <div class="setup-card">
+    <h1>高校辩论赛 · 计时系统</h1>
+    <div class="sub">DEBATE TIMER · 正式比赛版</div>
+
+    <div class="field">
+      <label>辩 题</label>
+      <input id="inTopic" type="text" placeholder="请输入本场辩题" maxlength="80">
+    </div>
+    <div class="field">
+      <label>正方队伍</label>
+      <input id="inPro" type="text" placeholder="请输入正方队伍名称" maxlength="30">
+    </div>
+    <div class="field">
+      <label>反方队伍</label>
+      <input id="inCon" type="text" placeholder="请输入反方队伍名称" maxlength="30">
+    </div>
+
+    <button class="btn btn-primary" id="enterBtn">进 入 比 赛</button>
+
+    <div class="setup-tip">
+      提示：点击按钮后可播放语音播报，请先点一次 <b>进入比赛</b> 解锁声音<br>
+      比赛中可随时点击顶部「修改信息」调整辩题与队伍名称
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 比赛页 ==================== -->
+<section id="match" class="hidden">
+
+  <div class="topbar">
+    <div class="team pro"><span class="dot"></span><span id="hdPro">正方</span></div>
+    <div class="topic"><span id="hdTopic">辩题</span><small>DEBATE TOPIC</small></div>
+    <div class="team con"><span class="dot"></span><span id="hdCon">反方</span></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" id="editBtn">修改信息</button>
+    </div>
+  </div>
+
+  <div class="segbar" id="segbar"></div>
+
+  <div class="main">
+    <div class="seg-title">
+      <h2 id="segName">正方开篇立论</h2>
+      <div class="role" id="segRole">正方一辩</div>
+    </div>
+
+    <!-- 单边计时 -->
+    <div id="singleWrap">
+      <div class="clock-side" id="singleSide">正 方</div>
+      <div class="clock" id="singleClock">03:30</div>
+      <div class="progress"><i id="singleProg"></i></div>
+      <div class="state-tag" id="singleState">待开始</div>
+    </div>
+
+    <!-- 双边计时 -->
+    <div id="dualWrap" class="hidden">
+      <!-- 正方 -->
+      <div class="dual-col pro" id="colPro">
+        <div class="dual-badge" id="badgePro">待机</div>
+        <div class="who">正 方</div>
+        <div class="dual-clock" id="clockPro">01:30</div>
+        <div class="dual-state" id="statePro">未开始</div>
+        <div class="ctrl">
+          <button class="btn btn-start" id="proStart">正方开始</button>
+          <button class="btn btn-pause" id="proPause">暂停</button>
+        </div>
+      </div>
+      <!-- 反方 -->
+      <div class="dual-col con" id="colCon">
+        <div class="dual-badge" id="badgeCon">待机</div>
+        <div class="who">反 方</div>
+        <div class="dual-clock" id="clockCon">01:30</div>
+        <div class="dual-state" id="stateCon">未开始</div>
+        <div class="ctrl">
+          <button class="btn btn-start" id="conStart">反方开始</button>
+          <button class="btn btn-pause" id="conPause">暂停</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部控制 -->
+  <div class="ctrlbar">
+    <button class="btn btn-ghost" id="prevBtn">← 上一环节</button>
+    <button class="btn btn-start" id="startBtn">开 始</button>
+    <button class="btn btn-pause" id="pauseBtn" disabled>暂 停</button>
+    <button class="btn btn-reset" id="resetBtn">重 置</button>
+    <button class="btn btn-ghost" id="nextBtn">下一环节 →</button>
+    <span class="kbd-tip">空格=开始/暂停 · R=重置</span>
+  </div>
+
+  <button class="btn btn-ghost" id="fsBtn">⛶ 全屏</button>
+</section>
+
+<script>
+"use strict";
+
+/* ============================================================
+   一、赛制定义（严格按需求，顺序不可调换）
+   type: single = 单边计时 | dual = 双独立计时器
+   ============================================================ */
+const SEGMENTS = [
+  { id:"s1",  no:1,  name:"正方开篇立论",             role:"正方一辩",              type:"single", side:"pro", dur:210,
+    v:{ start:"正方开篇立论，计时开始", s30:"正方开篇立论剩余30秒", s10:"正方开篇立论剩余10秒", end:"正方开篇立论时间到，请停止发言" } },
+
+  { id:"s2",  no:2,  name:"反方破题立论",             role:"反方一辩",              type:"single", side:"con", dur:210,
+    v:{ start:"反方破题立论，计时开始", s30:"反方破题立论剩余30秒", s10:"反方破题立论剩余10秒", end:"反方破题立论时间到，请停止发言" } },
+
+  { id:"s3",  no:3,  name:"反方四辩质询正方一辩",     role:"质询方：反方四辩",       type:"single", side:"con", dur:90,
+    v:{ start:"反方四辩质询正方一辩，计时开始", s30:"本次质询剩余30秒", s10:"本次质询剩余10秒", end:"质询时间到，请停止提问" } },
+
+  { id:"s4",  no:4,  name:"正方四辩质询反方一辩",     role:"质询方：正方四辩",       type:"single", side:"pro", dur:90,
+    v:{ start:"正方四辩质询反方一辩，计时开始", s30:"本次质询剩余30秒", s10:"本次质询剩余10秒", end:"质询时间到，请停止提问" } },
+
+  { id:"s5",  no:5,  name:"反方二辩驳论",             role:"反方二辩",              type:"single", side:"con", dur:120,
+    v:{ start:"反方二辩驳论，计时开始", s30:"反方二辩驳论剩余30秒", s10:"反方二辩驳论剩余10秒", end:"反方二辩驳论时间到，请停止发言" } },
+
+  { id:"s6",  no:6,  name:"正方二辩驳论",             role:"正方二辩",              type:"single", side:"pro", dur:120,
+    v:{ start:"正方二辩驳论，计时开始", s30:"正方二辩驳论剩余30秒", s10:"正方二辩驳论剩余10秒", end:"正方二辩驳论时间到，请停止发言" } },
+
+  { id:"s7",  no:7,  name:"二辩对辩",                 role:"正方二辩 ↔ 反方二辩",    type:"dual", durPro:90, durCon:90,
+    vPro:{ start:"二辩对辩，正方计时开始", s30:"二辩对辩，正方剩余30秒", s10:"二辩对辩，正方剩余10秒", end:"正方对辩时间到" },
+    vCon:{ start:"二辩对辩，反方计时开始", s30:"二辩对辩，反方剩余30秒", s10:"二辩对辩，反方剩余10秒", end:"反方对辩时间到" } },
+
+  { id:"s8",  no:8,  name:"正方三辩质询",             role:"正方三辩质询反方一、二、四辩", type:"single", side:"pro", dur:120,
+    v:{ start:"正方三辩质询，计时开始", s30:"本次质询剩余30秒", s10:"本次质询剩余10秒", end:"质询时间到，请停止提问" } },
+
+  { id:"s9",  no:9,  name:"反方三辩质询",             role:"反方三辩质询正方一、二、四辩", type:"single", side:"con", dur:120,
+    v:{ start:"反方三辩质询，计时开始", s30:"本次质询剩余30秒", s10:"本次质询剩余10秒", end:"质询时间到，请停止提问" } },
+
+  { id:"s10", no:10, name:"正方三辩质询小结",         role:"正方三辩",              type:"single", side:"pro", dur:90,
+    v:{ start:"正方三辩质询小结，计时开始", s30:"正方三辩小结剩余30秒", s10:"正方三辩小结剩余10秒", end:"正方三辩小结时间到，请停止发言" } },
+
+  { id:"s11", no:11, name:"反方三辩质询小结",         role:"反方三辩",              type:"single", side:"con", dur:90,
+    v:{ start:"反方三辩质询小结，计时开始", s30:"反方三辩小结剩余30秒", s10:"反方三辩小结剩余10秒", end:"反方三辩小结时间到，请停止发言" } },
+
+  { id:"s12", no:12, name:"自由辩论",                 role:"双方辩手",              type:"dual", durPro:240, durCon:240,
+    vPro:{ start:"自由辩论，正方计时开始", s30:"自由辩论，正方剩余30秒", s10:"自由辩论，正方剩余10秒", end:"正方自由辩论时间已用尽，正方不可继续发言" },
+    vCon:{ start:"自由辩论，反方计时开始", s30:"自由辩论，反方剩余30秒", s10:"自由辩论，反方剩余10秒", end:"反方自由辩论时间已用尽，反方不可继续发言" } },
+
+  { id:"s13", no:13, name:"反方四辩总结陈词",         role:"反方四辩",              type:"single", side:"con", dur:210,
+    v:{ start:"反方四辩总结陈词，计时开始", s30:"反方总结剩余30秒", s10:"反方总结剩余10秒", end:"反方总结时间到，请停止发言" } },
+
+  { id:"s14", no:14, name:"正方四辩总结陈词",         role:"正方四辩",              type:"single", side:"pro", dur:210,
+    v:{ start:"正方四辩总结陈词，计时开始", s30:"正方总结剩余30秒", s10:"正方总结剩余10秒", end:"正方总结时间到，请停止发言" } },
+];
+
+const OPENING_VOICE = "辩论赛即将开始，请辩手、评委就位。";
+const FINAL_VOICE   = "本场辩论赛所有环节结束！";
+
+/* ============================================================
+   二、工具：时间格式化
+   ============================================================ */
+function fmt(sec){
+  sec = Math.max(0, Math.ceil(sec));
+  const m = Math.floor(sec/60), s = sec%60;
+  return String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+}
+
+/* ============================================================
+   三、语音播报
+   ============================================================ */
+let voiceUnlocked = false;
+let zhVoice = null;
+
+function pickVoice(){
+  if (!("speechSynthesis" in window)) return null;
+  const vs = speechSynthesis.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) 
+         || vs.find(v => /^zh/i.test(v.lang))
+         || vs.find(v => /Chinese|中文|普通话/i.test(v.name))
+         || null;
+  return zhVoice;
+}
+if ("speechSynthesis" in window){
+  pickVoice();
+  speechSynthesis.onvoiceschanged = pickVoice;
+}
+
+function speak(text, interrupt){
+  if (!("speechSynthesis" in window) || !text) return;
+  try{
+    if (interrupt !== false) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-CN";
+    u.rate = 1.0;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+    if (zhVoice) u.voice = zhVoice;
+    speechSynthesis.speak(u);
+    voiceUnlocked = true;
+  }catch(e){ /* 静默失败，不影响计时 */ }
+}
+
+/* ============================================================
+   四、倒计时器
+   ============================================================ */
+class Countdown {
+  constructor(duration){
+    this.dur = duration;
+    this.remain = duration;
+    this.state = "idle";      // idle | running | paused | ended
+    this._timer = null;
+    this._last = 0;
+    this._marks = {};
+    this.onTick = null;       // (remain, self)
+    this.onMark = null;       // ("s30"|"s10")
+    this.onEnd  = null;       // (self)
+  }
+  reset(){
+    this._stopInterval();
+    this.remain = this.dur;
+    this.state = "idle";
+    this._marks = {};
+    if (this.onTick) this.onTick(this.remain, this);
+  }
+  start(){
+    if (this.state === "ended") return false;      // 已耗尽，禁止再启动
+    if (this.state === "running") return true;
+    if (this.state === "idle"){ this.remain = this.dur; this._marks = {}; }
+    this.state = "running";
+    this._last = performance.now();
+    this._timer = setInterval(() => this._tick(), 80);
+    if (this.onTick) this.onTick(this.remain, this);
+    return true;
+  }
+  pause(){
+    if (this.state !== "running") return;
+    this._stopInterval();
+    this.state = "paused";
+    if (this.onTick) this.onTick(this.remain, this);
+  }
+  _stopInterval(){
+    if (this._timer){ clearInterval(this._timer); this._timer = null; }
+  }
+  _tick(){
+    if (this.state !== "running") return;
+    const now = performance.now();
+    const dt = (now - this._last) / 1000;
+    this._last = now;
+    this.remain -= dt;
+    if (this.remain < 0) this.remain = 0;
+
+    if (this.onTick) this.onTick(this.remain, this);
+
+    // 30 秒提醒（只触发一次）
+    if (!this._marks.s30 && this.remain <= 30 && this.remain > 10){
+      this._marks.s30 = true;
+      if (this.onMark) this.onMark("s30", this);
+    }
+    // 10 秒提醒（只触发一次）
+    if (!this._marks.s10 && this.remain <= 10 && this.remain > 0){
+      this._marks.s10 = true;
+      if (this.onMark) this.onMark("s10", this);
+    }
+    // 到点
+    if (this.remain <= 0){
+      this._stopInterval();
+      this.state = "ended";
+      if (this.onTick) this.onTick(0, this);
+      if (this.onEnd) this.onEnd(this);
+    }
+  }
+}
+
+/* ============================================================
+   五、全局状态
+   ============================================================ */
+const S = {
+  topic: "",
+  pro: "",
+  con: "",
+  cur: 0,                     // 当前环节索引
+  singleTimer: null,
+  dual: { pro: null, con: null },
+  dualActive: null,           // "pro" | "con" | null
+};
+
+/* DOM 引用 */
+const $ = id => document.getElementById(id);
+const el = {
+  setup:$("setup"), match:$("match"),
+  enterBtn:$("enterBtn"),
+  inTopic:$("inTopic"), inPro:$("inPro"), inCon:$("inCon"),
+  hdTopic:$("hdTopic"), hdPro:$("hdPro"), hdCon:$("hdCon"),
+  segbar:$("segbar"), segName:$("segName"), segRole:$("segRole"),
+  singleWrap:$("singleWrap"), dualWrap:$("dualWrap"),
+  singleSide:$("singleSide"), singleClock:$("singleClock"),
+  singleProg:$("singleProg"), singleState:$("singleState"),
+  clockPro:$("clockPro"), clockCon:$("clockCon"),
+  statePro:$("statePro"), stateCon:$("stateCon"),
+  colPro:$("colPro"), colCon:$("colCon"),
+  badgePro:$("badgePro"), badgeCon:$("badgeCon"),
+  proStart:$("proStart"), proPause:$("proPause"),
+  conStart:$("conStart"), conPause:$("conPause"),
+  startBtn:$("startBtn"), pauseBtn:$("pauseBtn"), resetBtn:$("resetBtn"),
+  prevBtn:$("prevBtn"), nextBtn:$("nextBtn"),
+  editBtn:$("editBtn"), fsBtn:$("fsBtn"),
+};
+
+/* ============================================================
+   六、设置页逻辑
+   ============================================================ */
+function loadSaved(){
+  try{
+    const raw = localStorage.getItem("debate_setup_v1");
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    el.inTopic.value = o.topic || "";
+    el.inPro.value   = o.pro   || "";
+    el.inCon.value   = o.con   || "";
+  }catch(e){}
+}
+function saveSetup(){
+  try{
+    localStorage.setItem("debate_setup_v1", JSON.stringify({
+      topic: el.inTopic.value.trim(),
+      pro:   el.inPro.value.trim(),
+      con:   el.inCon.value.trim()
+    }));
+  }catch(e){}
+}
+function applyHeader(){
+  el.hdTopic.textContent = S.topic || "（未填写辩题）";
+  el.hdPro.textContent   = S.pro   || "正方";
+  el.hdCon.textContent   = S.con   || "反方";
+}
+function enterMatch(){
+  S.topic = el.inTopic.value.trim();
+  S.pro   = el.inPro.value.trim();
+  S.con   = el.inCon.value.trim();
+  saveSetup();
+  applyHeader();
+  el.setup.classList.add("hidden");
+  el.match.classList.remove("hidden");
+  // 解锁语音（用户手势内）
+  speak(OPENING_VOICE, true);
+  buildSegbar();
+  openSegment(0);
+}
+
+/* ============================================================
+   七、环节切换
+   ============================================================ */
+function buildSegbar(){
+  el.segbar.innerHTML = "";
+  SEGMENTS.forEach((sg, i) => {
+    const b = document.createElement("button");
+    b.className = "segchip";
+    b.dataset.idx = i;
+    b.innerHTML = `<span class="n">${sg.no}.</span>${sg.name}<br><span style="opacity:.6">${fmt(sg.type==="dual"?Math.max(sg.durPro,sg.durCon):sg.dur)}</span>`;
+    b.addEventListener("click", () => openSegment(i));
+    el.segbar.appendChild(b);
+  });
+}
+
+function markSegbarActive(idx){
+  [...el.segbar.children].forEach((c, i) => {
+    c.classList.toggle("active", i === idx);
+    if (i === idx) c.scrollIntoView({behavior:"smooth", block:"nearest", inline:"center"});
+  });
+}
+
+/** 停止并作废当前所有计时器 */
+function disposeTimers(){
+  if (S.singleTimer){ S.singleTimer.onTick = S.singleTimer.onMark = S.singleTimer.onEnd = null; }
+  if (S.dual.pro){ S.dual.pro.onTick = S.dual.pro.onMark = S.dual.pro.onEnd = null; }
+  if (S.dual.con){ S.dual.con.onTick = S.dual.con.onMark = S.dual.con.onEnd = null; }
+  S.singleTimer = null;
+  S.dual.pro = S.dual.con = null;
+  S.dualActive = null;
+}
+
+function openSegment(idx){
+  idx = Math.max(0, Math.min(SEGMENTS.length - 1, idx));
+  disposeTimers();
+  S.cur = idx;
+  const sg = SEGMENTS[idx];
+
+  el.segName.textContent = `${sg.no}. ${sg.name}`;
+  el.segRole.textContent = sg.role;
+  markSegbarActive(idx);
+
+  if (sg.type === "single"){
+    el.singleWrap.classList.remove("hidden");
+    el.dualWrap.classList.add("hidden");
+    setupSingle(sg);
+  } else {
+    el.singleWrap.classList.add("hidden");
+    el.dualWrap.classList.remove("hidden");
+    setupDual(sg);
+  }
+  syncBottomButtons();
+}
+
+/* ============================================================
+   八、单边计时
+   ============================================================ */
+function setupSingle(sg){
+  const t = new Countdown(sg.dur);
+  S.singleTimer = t;
+
+  el.singleSide.textContent = sg.side === "pro" ? "正 方" : "反 方";
+  el.singleSide.style.color = sg.side === "pro" ? "#8ec1ff" : "#ff9d9d";
+
+  const paint = () => {
+    const sec = t.remain;
+    el.singleClock.textContent = fmt(sec);
+    el.singleClock.classList.remove("warn","danger","done");
+    if (t.state === "ended") el.singleClock.classList.add("done");
+    else if (sec <= 10) el.singleClock.classList.add("danger");
+    else if (sec <= 30) el.singleClock.classList.add("warn");
+
+    const ratio = Math.max(0, Math.min(1, sec / sg.dur));
+    el.singleProg.style.width = (ratio*100) + "%";
+    el.singleProg.className = t.state==="ended" ? "danger" : (sec<=10 ? "danger" : (sec<=30 ? "warn" : ""));
+
+    el.singleState.className = "state-tag";
+    if (t.state === "idle")     el.singleState.textContent = "待开始";
+    if (t.state === "running"){ el.singleState.textContent = "计 时 中"; el.singleState.classList.add("running"); }
+    if (t.state === "paused"){  el.singleState.textContent = "已 暂 停"; el.singleState.classList.add("paused"); }
+    if (t.state === "ended"){   el.singleState.textContent = "时间已到 · 已锁定"; el.singleState.classList.add("ended"); }
+    syncBottomButtons();
+  };
+
+  t.onTick = paint;
+  t.onMark = (kind) => speak(kind === "s30" ? sg.v.s30 : sg.v.s10, true);
+  t.onEnd  = () => {
+    speak(sg.v.end, true);
+    // 最后一个环节结束 → 全场结束播报
+    if (sg.id === SEGMENTS[SEGMENTS.length-1].id){
+      setTimeout(() => speak(FINAL_VOICE, true), 2600);
+    }
+  };
+
+  paint();
+}
+
+/* ============================================================
+   九、双边计时（二辩对辩 / 自由辩论）
+   ============================================================ */
+function setupDual(sg){
+  const makeSide = (side) => {
+    const dur = side === "pro" ? sg.durPro : sg.durCon;
+    const v   = side === "pro" ? sg.vPro   : sg.vCon;
+    const clockEl = side === "pro" ? el.clockPro : el.clockCon;
+    const stateEl = side === "pro" ? el.statePro : el.stateCon;
+    const badgeEl = side === "pro" ? el.badgePro : el.badgeCon;
+
+    const t = new Countdown(dur);
+
+    const paint = () => {
+      const sec = t.remain;
+      clockEl.textContent = fmt(sec);
+      clockEl.classList.remove("warn","danger","done");
+      if (t.state === "ended") clockEl.classList.add("done");
+      else if (sec <= 10) clockEl.classList.add("danger");
+      else if (sec <= 30) clockEl.classList.add("warn");
+
+      stateEl.textContent =
+        t.state === "idle"    ? "未开始" :
+        t.state === "running" ? "计时中" :
+        t.state === "paused"  ? "已暂停" : "时间已用尽";
+
+      badgeEl.textContent =
+        t.state === "ended"   ? "已耗尽" :
+        t.state === "running" ? "发言中" :
+        t.state === "paused"  ? "暂停" : "待机";
+
+      const col = side === "pro" ? el.colPro : el.colCon;
+      col.classList.toggle("active", S.dualActive === side && t.state === "running");
+
+      const btn = side === "pro" ? el.proStart : el.conStart;
+      btn.disabled = (t.state === "ended");
+
+      syncBottomButtons();
+    };
+
+    t.onTick = paint;
+    t.onMark = (kind) => speak(kind === "s30" ? v.s30 : v.s10, true);
+    t.onEnd  = () => {
+      speak(v.end, true);
+      if (S.dualActive === side) S.dualActive = null;
+      paint();
+    };
+
+    paint();
+    return t;
+  };
+
+  S.dual.pro = makeSide("pro");
+  S.dual.con = makeSide("con");
+  S.dualActive = null;
+  el.colPro.classList.remove("active");
+  el.colCon.classList.remove("active");
+  syncBottomButtons();
+}
+
+/** 切换发言权：一方启动，另一方强制暂停 */
+function dualControl(side){
+  const me  = side === "pro" ? S.dual.pro : S.dual.con;
+  const opp = side === "pro" ? S.dual.con : S.dual.pro;
+  if (!me) return;
+
+  if (me.state === "ended") return;      // 自己已耗尽，不能启动
+  opp.pause();                            // 对方强制暂停锁定
+
+  if (me.state === "idle" || me.state === "paused"){
+    const sg = SEGMENTS[S.cur];
+    const v = side === "pro" ? sg.vPro : sg.vCon;
+    if (me.state === "idle") speak(v.start, true);
+    S.dualActive = side;
+    me.start();
+  }
+}
+
+function dualPause(side){
+  const me = side === "pro" ? S.dual.pro : S.dual.con;
+  if (!me) return;
+  me.pause();
+  if (S.dualActive === side) S.dualActive = null;
+  syncBottomButtons();
+}
+
+/* ============================================================
+   十、底部控制按钮状态同步
+   ============================================================ */
+function currentPrimaryTimer(){
+  const sg = SEGMENTS[S.cur];
+  if (!sg) return null;
+  return sg.type === "single" ? S.singleTimer : (S.dualActive === "con" ? S.dual.con : S.dual.pro);
+}
+
+function syncBottomButtons(){
+  const sg = SEGMENTS[S.cur];
+  if (!sg) return;
+  if (sg.type === "single"){
+    const t = S.singleTimer;
+    el.startBtn.disabled = !t || t.state === "ended";
+    el.pauseBtn.disabled = !t || t.state !== "running";
+    el.startBtn.textContent = (t && t.state === "paused") ? "继 续" : "开 始";
+  } else {
+    // 双边模式：底部“开始”用于启动当前可控的一方（默认正方）
+    const anyRunning = (S.dual.pro && S.dual.pro.state === "running") || (S.dual.con && S.dual.con.state === "running");
+    const anyEndedIdle = (S.dual.pro && S.dual.pro.state === "ended") && (S.dual.con && S.dual.con.state === "ended");
+    el.startBtn.disabled = anyEndedIdle;
+    el.pauseBtn.disabled = !anyRunning;
+    el.startBtn.textContent = "开 始";
+  }
+  el.prevBtn.disabled = S.cur <= 0;
+  el.nextBtn.disabled = S.cur >= SEGMENTS.length - 1;
+}
+
+/* ============================================================
+   十一、事件绑定
+   ============================================================ */
+el.enterBtn.addEventListener("click", enterMatch);
+
+el.editBtn.addEventListener("click", () => {
+  // 回到设置页（保留当前数据）
+  el.inTopic.value = S.topic;
+  el.inPro.value = S.pro;
+  el.inCon.value = S.con;
+  el.match.classList.add("hidden");
+  el.setup.classList.remove("hidden");
+  el.inTopic.focus();
+});
+
+// 设置页回车直接进入
+[el.inTopic, el.inPro, el.inCon].forEach(inp => {
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") enterMatch(); });
+});
+
+// 上一环节 / 下一环节
+el.prevBtn.addEventListener("click", () => openSegment(S.cur - 1));
+el.nextBtn.addEventListener("click", () => openSegment(S.cur + 1));
+
+// 单边：开始/暂停/重置
+el.startBtn.addEventListener("click", () => {
+  const sg = SEGMENTS[S.cur];
+  if (sg.type === "single"){
+    const t = S.singleTimer;
+    if (!t) return;
+    if (t.state === "idle"){ speak(sg.v.start, true); t.start(); }
+    else if (t.state === "paused") t.start();
+    else if (t.state === "running") { /* 已在跑 */ }
+  } else {
+    // 双边：启动默认可控的一方（正方优先，若正方耗尽则反方）
+    if (S.dual.pro && S.dual.pro.state !== "ended"){
+      if (S.dual.pro.state === "running") return;
+      dualControl("pro");
+    } else if (S.dual.con && S.dual.con.state !== "ended"){
+      if (S.dual.con.state === "running") return;
+      dualControl("con");
+    }
+  }
+});
+
+el.pauseBtn.addEventListener("click", () => {
+  const sg = SEGMENTS[S.cur];
+  if (sg.type === "single"){
+    const t = S.singleTimer;
+    if (t && t.state === "running") t.pause();
+  } else {
+    if (S.dual.pro && S.dual.pro.state === "running") dualPause("pro");
+    else if (S.dual.con && S.dual.con.state === "running") dualPause("con");
+  }
+});
+
+el.resetBtn.addEventListener("click", () => {
+  const sg = SEGMENTS[S.cur];
+  if (sg.type === "single"){
+    if (S.singleTimer){ S.singleTimer.reset(); S.singleTimer.onTick(S.singleTimer.remain, S.singleTimer); }
+  } else {
+    if (S.dual.pro){ S.dual.pro.reset(); S.dual.pro.onTick(S.dual.pro.remain, S.dual.pro); }
+    if (S.dual.con){ S.dual.con.reset(); S.dual.con.onTick(S.dual.con.remain, S.dual.con); }
+    S.dualActive = null;
+    el.colPro.classList.remove("active");
+    el.colCon.classList.remove("active");
+  }
+  syncBottomButtons();
+});
+
+// 双边各自按钮
+el.proStart.addEventListener("click", () => dualControl("pro"));
+el.conStart.addEventListener("click", () => dualControl("con"));
+el.proPause.addEventListener("click", () => dualPause("pro"));
+el.conPause.addEventListener("click", () => dualPause("con"));
+
+// 快捷键
+document.addEventListener("keydown", e => {
+  if (el.match.classList.contains("hidden")) return;
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space"){ e.preventDefault(); (el.pauseBtn.disabled ? el.startBtn : el.pauseBtn).click(); }
+  else if (e.key === "r" || e.key === "R"){ e.preventDefault(); el.resetBtn.click(); }
+  else if (e.key === "ArrowLeft"){ e.preventDefault(); el.prevBtn.click(); }
+  else if (e.key === "ArrowRight"){ e.preventDefault(); el.nextBtn.click(); }
+});
+
+// 全屏
+el.fsBtn.addEventListener("click", () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen().catch(()=>{});
+});
+
+/* ============================================================
+   十二、初始化
+   ============================================================ */
+loadSaved();
+applyHeader();
+
+/* ============================================================
+   十三、Service Worker 注册（PWA 离线支持）
+   ============================================================ */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
+/* 支持 manifest shortcut 的 ?autostart=1：自动进入比赛页 */
+if (new URLSearchParams(location.search).get("autostart") === "1") {
+  // 等一帧确保 DOM 就绪，再自动进入（设置留空时使用占位名）
+  setTimeout(() => { try { enterMatch(); } catch (e) {} }, 60);
+}
+</script>
+</body>
+</html>
